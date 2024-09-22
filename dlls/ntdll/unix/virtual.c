@@ -166,14 +166,14 @@ static void *address_space_start = (void *)0x10000;
 #ifdef __aarch64__
 static void *address_space_limit = (void *)0xffffffff0000;  /* top of the total available address space */
 #elif defined(_WIN64)
-static void *address_space_limit = (void *)0x7fffffff0000;
+static void *address_space_limit = (void *)0x7fffff0000;
 #else
 static void *address_space_limit = (void *)0xc0000000;
 #endif
 
 #ifdef _WIN64
-static void *user_space_limit    = (void *)0x7fffffff0000;  /* top of the user address space */
-static void *working_set_limit   = (void *)0x7fffffff0000;  /* top of the current working set */
+static void *user_space_limit    = (void *)0x7fffff0000;  /* top of the user address space */
+static void *working_set_limit   = (void *)0x7fffff0000;  /* top of the current working set */
 #else
 static void *user_space_limit    = (void *)0x7fff0000;
 static void *working_set_limit   = (void *)0x7fff0000;
@@ -557,7 +557,7 @@ static void mmap_init( const struct preload_info *preload_info )
     /* if we don't have a preloader, try to reserve the space now */
     reserve_area( (void *)0x000000010000, (void *)0x000068000000 );
     reserve_area( (void *)0x00007f000000, (void *)0x00007fff0000 );
-    reserve_area( (void *)0x7ffffe000000, (void *)0x7fffffff0000 );
+    reserve_area( (void *)0x7ffe000000, (void *)0x7fffff0000 );
 
 #endif
 }
