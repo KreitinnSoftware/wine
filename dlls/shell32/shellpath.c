@@ -2651,88 +2651,6 @@ end:
     return hr;
 }
 
-static char *xdg_config;
-static DWORD xdg_config_len;
-
-static BOOL WINAPI init_xdg_dirs( INIT_ONCE *once, void *param, void **context )
-{
-    const WCHAR *var, *fmt = L"\\??\\unix%s/user-dirs.dirs";
-    char *p;
-    WCHAR *name, *ptr;
-    HANDLE file;
-    DWORD len;
-
-    if (!(var = _wgetenv( L"XDG_CONFIG_HOME" )) || var[0] != '/')
-    {
-        if (!(var = _wgetenv( L"WINEHOMEDIR" ))) return TRUE;
-        fmt = L"%s/.config/user-dirs.dirs";
-    }
-    len = lstrlenW(var) + lstrlenW(fmt);
-    name = malloc( len * sizeof(WCHAR) );
-    swprintf( name, len, fmt, var );
-    name[1] = '\\';  /* change \??\ to \\?\ */
-    for (ptr = name; *ptr; ptr++) if (*ptr == '/') *ptr = '\\';
-
-    file = CreateFileW( name, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, 0 );
-    free( name );
-    if (file != INVALID_HANDLE_VALUE)
-    {
-        len = GetFileSize( file, NULL );
-        if (!(xdg_config = malloc( len + 1 ))) return TRUE;
-        if (!ReadFile( file, xdg_config, len, &xdg_config_len, NULL ))
-        {
-            free( xdg_config );
-            xdg_config = NULL;
-        }
-        else
-        {
-            for (p = xdg_config; p < xdg_config + xdg_config_len; p++) if (*p == '\n') *p = 0;
-            *p = 0;  /* append null to simplify string parsing */
-        }
-        CloseHandle( file );
-    }
-    return TRUE;
-}
-
-static char *get_xdg_path( const char *var )
-{
-    static INIT_ONCE once;
-    char *p, *ret = NULL;
-    int i;
-
-    InitOnceExecuteOnce( &once, init_xdg_dirs, NULL, NULL );
-    if (!xdg_config) return NULL;
-
-    for (p = xdg_config; p < xdg_config + xdg_config_len; p += strlen(p) + 1)
-    {
-        while (*p == ' ' || *p == '\t') p++;
-        if (strncmp( p, var, strlen(var) )) continue;
-        p += strlen(var);
-        while (*p == ' ' || *p == '\t') p++;
-        if (*p != '=') continue;
-        p++;
-        while (*p == ' ' || *p == '\t') p++;
-        if (*p != '"') continue;
-        p++;
-        if (*p != '/' && strncmp( p, "$HOME/", 6 )) continue;
-
-        if (!(ret = malloc( strlen(p) + 1 ))) break;
-        for (i = 0; *p && *p != '"'; i++, p++)
-        {
-            if (*p == '\\' && p[1]) p++;
-            ret[i] = *p;
-        }
-        ret[i] = 0;
-        if (*p != '"')
-        {
-            free( ret );
-            ret = NULL;
-        }
-        break;
-    }
-    return ret;
-}
-
 static BOOL link_folder( HANDLE mgr, const UNICODE_STRING *path, const char *link )
 {
     struct mountmgr_shell_folder *ioctl;
@@ -2756,9 +2674,9 @@ static BOOL link_folder( HANDLE mgr, const UNICODE_STRING *path, const char *lin
  * create_link
  *
  * Sets up a symbolic link for one of the 'My Whatever' shell folders to point
- * into the corresponding XDG directory.
+ * into the corresponding android directory.
  */
-static void create_link( const WCHAR *path, const char *xdg_name, const char *default_name )
+static void create_link( const WCHAR *path, const char *default_name )
 {
     UNICODE_STRING nt_name;
     char *target = NULL;
@@ -2775,10 +2693,6 @@ static void create_link( const WCHAR *path, const char *xdg_name, const char *de
     nt_name.Buffer = NULL;
     if (!RtlDosPathNameToNtPathName_U( path, &nt_name, NULL, NULL )) goto done;
 
-    if ((target = get_xdg_path( xdg_name )))
-    {
-        if (link_folder( mgr, &nt_name, target )) goto done;
-    }
     link_folder( mgr, &nt_name, default_name );
 
 done:
@@ -2802,25 +2716,23 @@ static void _SHCreateSymbolicLink(int nFolder, const WCHAR *path)
 
     switch (folder) {
         case CSIDL_PERSONAL:
-            create_link( path, "XDG_DOCUMENTS_DIR", "$HOME/Documents" );
+            create_link( path, "/storage/emulated/0/Documents" );
             break;
         case CSIDL_DESKTOPDIRECTORY:
-            create_link( path, "XDG_DESKTOP_DIR", "$HOME/Desktop" );
             break;
         case CSIDL_MYPICTURES:
-            create_link( path, "XDG_PICTURES_DIR", "$HOME/Pictures" );
+            create_link( path, "/storage/emulated/0/Pictures" );
             break;
         case CSIDL_MYVIDEO:
-            create_link( path, "XDG_VIDEOS_DIR", "$HOME/Movies" );
+            create_link( path, "/storage/emulated/0/Movies" );
             break;
         case CSIDL_MYMUSIC:
-            create_link( path, "XDG_MUSIC_DIR", "$HOME/Music" );
+            create_link( path, "/storage/emulated/0/Music" );
             break;
         case CSIDL_DOWNLOADS:
-            create_link( path, "XDG_DOWNLOAD_DIR", "$HOME/Downloads" );
+            create_link( path, "/storage/emulated/0/Download" );
             break;
         case CSIDL_TEMPLATES:
-            create_link( path, "XDG_TEMPLATES_DIR", "$HOME/Templates" );
             break;
     }
 }
