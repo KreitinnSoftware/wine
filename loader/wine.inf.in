@@ -2418,7 +2418,6 @@ ErrorControl=1
 
 [ThemeManager]
 HKCU,"Software\Microsoft\Windows\CurrentVersion\ThemeManager","ThemeActive",2,"1"
-HKCU,"Software\Microsoft\Windows\CurrentVersion\ThemeManager","DllName",2,"%10%\resources\themes\light\light.msstyles"
 HKCU,"Software\Microsoft\Windows\CurrentVersion\ThemeManager","ColorName",2,"Blue"
 HKCU,"Software\Microsoft\Windows\CurrentVersion\ThemeManager","SizeName",2,"NormalSize"
 
