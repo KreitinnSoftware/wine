@@ -1808,7 +1808,9 @@ void X11DRV_InitKeyboard( Display *display )
  */
 BOOL X11DRV_ActivateKeyboardLayout(HKL hkl, UINT flags)
 {
-    FIXME("%p, %04x: semi-stub!\n", hkl, flags);
+    static int warn_once;
+
+    if (!warn_once++) FIXME("%p, %04x: semi-stub!\n", hkl, flags);
 
     if (flags & KLF_SETFORPROCESS)
     {
