@@ -1064,6 +1064,7 @@ NTSTATUS WINAPI BCryptCreateHash( BCRYPT_ALG_HANDLE handle, BCRYPT_HASH_HANDLE *
     struct algorithm *alg = get_alg_object( handle );
     struct hash *hash;
     NTSTATUS status;
+    static int warn_once;
 
     TRACE( "%p, %p, %p, %lu, %p, %lu, %#lx\n", handle, ret_handle, object, object_len, secret, secret_len, flags );
     if (flags & ~BCRYPT_HASH_REUSABLE_FLAG)
@@ -1071,7 +1072,7 @@ NTSTATUS WINAPI BCryptCreateHash( BCRYPT_ALG_HANDLE handle, BCRYPT_HASH_HANDLE *
         FIXME( "unimplemented flags %#lx\n", flags );
         return STATUS_NOT_IMPLEMENTED;
     }
-    if (object) FIXME( "ignoring object buffer\n" );
+    if (object && !warn_once++) FIXME( "ignoring object buffer\n" );
 
     if (!alg) return STATUS_INVALID_HANDLE;
     if (!ret_handle) return STATUS_INVALID_PARAMETER;
@@ -1086,12 +1087,13 @@ NTSTATUS WINAPI BCryptDuplicateHash( BCRYPT_HASH_HANDLE handle, BCRYPT_HASH_HAND
 {
     struct hash *hash_orig = get_hash_object( handle );
     struct hash *hash_copy;
+    static int warn_once;
 
     TRACE( "%p, %p, %p, %lu, %#lx\n", handle, handle_copy, object, objectlen, flags );
 
     if (!hash_orig) return STATUS_INVALID_HANDLE;
     if (!handle_copy) return STATUS_INVALID_PARAMETER;
-    if (object) FIXME( "ignoring object buffer\n" );
+    if (object && !warn_once++) FIXME( "ignoring object buffer\n" );
 
     if (!(hash_copy = malloc( sizeof(*hash_copy) ))) return STATUS_NO_MEMORY;
 
