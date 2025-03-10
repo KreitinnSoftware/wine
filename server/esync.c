@@ -69,7 +69,17 @@ static long pagesize;
 #include <errno.h>
 static int shm_unlink(const char *name) {
     size_t namelen;
-    char *fname;
+    const char *env_tmpdir = getenv("TMPDIR");
+    const char *default_tmpdir = "/data/data/com.micewine.emu/files/usr/tmp/";
+
+    char fname[1024];
+
+    if (env_tmpdir) {
+        size_t pathlen = strlen(env_tmpdir);
+        snprintf(fname, sizeof(fname), "%s%s", env_tmpdir, (env_tmpdir[pathlen - 1] == '/') ? "" : "/");
+    } else {
+        snprintf(fname, sizeof(fname), "%s", default_tmpdir);
+    }
 
     /* Construct the filename.  */
     while (name[0] == '/') ++name;
@@ -80,18 +90,25 @@ static int shm_unlink(const char *name) {
         return -1;
     }
 
-    namelen = strlen(name);
-    fname = (char *) alloca(sizeof("/data/data/com.micewine.emu/files/usr/tmp/") - 1 + namelen + 1);
-    memcpy(fname, "/data/data/com.micewine.emu/files/usr/tmp/", sizeof("/data/data/com.micewine.emu/files/usr/tmp/") - 1);
-    memcpy(fname + sizeof("/data/data/com.micewine.emu/files/usr/tmp/") - 1, name, namelen + 1);
+    strcat(fname, name);
 
     return unlink(fname);
 }
 
 static int shm_open(const char *name, int oflag, mode_t mode) {
     size_t namelen;
-    char *fname;
     int fd;
+    const char *env_tmpdir = getenv("TMPDIR");
+    const char *default_tmpdir = "/data/data/com.micewine.emu/files/usr/tmp/";
+
+    char fname[1024];
+
+    if (env_tmpdir) {
+        size_t pathlen = strlen(env_tmpdir);
+        snprintf(fname, sizeof(fname), "%s%s", env_tmpdir, (env_tmpdir[pathlen - 1] == '/') ? "" : "/");
+    } else {
+        snprintf(fname, sizeof(fname), "%s", default_tmpdir);
+    }
 
     /* Construct the filename.  */
     while (name[0] == '/') ++name;
@@ -102,10 +119,7 @@ static int shm_open(const char *name, int oflag, mode_t mode) {
         return -1;
     }
 
-    namelen = strlen(name);
-    fname = (char *) alloca(sizeof("/data/data/com.micewine.emu/files/usr/tmp/") - 1 + namelen + 1);
-    memcpy(fname, "/data/data/com.micewine.emu/files/usr/tmp/", sizeof("/data/data/com.micewine.emu/files/usr/tmp/") - 1);
-    memcpy(fname + sizeof("/data/data/com.micewine.emu/files/usr/tmp/") - 1, name, namelen + 1);
+    strcat(fname, name);
 
     fd = open(fname, oflag, mode);
     if (fd != -1) {

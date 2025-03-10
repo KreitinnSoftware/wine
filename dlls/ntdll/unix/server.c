@@ -1286,7 +1286,21 @@ static int setup_config_dir(void)
         symlink( "../drive_c", "dosdevices/c:" );
 #ifdef __ANDROID__
         symlink( "/storage/emulated/0", "dosdevices/d:" );
-        symlink( "/data/data/com.micewine.emu/files", "dosdevices/z:" );
+
+        const char *env_wine_z_disk_folder = getenv("WINE_Z_DISK");
+        const char *default_wine_z_disk_folder = "/data/data/com.micewine.emu/files/";
+
+        char wine_z_disk_folder[1024];
+
+        if (env_wine_z_disk_folder) {
+            size_t pathlen = strlen(env_wine_z_disk_folder);
+            snprintf(wine_z_disk_folder, sizeof(wine_z_disk_folder), "%s%s", env_wine_z_disk_folder,
+                     (env_wine_z_disk_folder[pathlen - 1] == '/') ? "" : "/");
+        } else {
+            snprintf(wine_z_disk_folder, sizeof(wine_z_disk_folder), "%s", default_wine_z_disk_folder);
+        }
+
+        symlink( env_wine_z_disk_folder, "dosdevices/z:" );
 #else
         symlink( "/", "dosdevices/z:" );
 #endif
