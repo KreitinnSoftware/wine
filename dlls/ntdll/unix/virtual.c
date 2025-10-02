@@ -2124,7 +2124,7 @@ static NTSTATUS map_file_into_view( struct file_view *view, int fd, size_t start
             break;
         case ENOEXEC:
         case ENODEV:  /* filesystem doesn't support mmap(), fall back to read() */
-            if (vprot & VPROT_WRITE)
+            if (flags & MAP_SHARED)
             {
                 ERR( "shared writable mmap not supported, broken filesystem?\n" );
                 return STATUS_NOT_SUPPORTED;
