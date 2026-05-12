@@ -101,11 +101,9 @@ C_ASSERT(sizeof(struct event) == 8);
 
 static char shm_name[29];
 static int shm_fd;
-static void **shm_addrs;
-static int shm_addrs_size;  /* length of the allocated shm_addrs array */
+#define MAX_SHM_PAGES 65536
+static void *shm_addrs[MAX_SHM_PAGES];
 static long pagesize;
-
-static pthread_mutex_t shm_addrs_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 #ifdef __ANDROID__
 #include <alloca.h>
@@ -188,18 +186,11 @@ static void *get_shm( unsigned int idx )
 {
     int entry  = (idx * 8) / pagesize;
     int offset = (idx * 8) % pagesize;
-    void *ret;
 
-    pthread_mutex_lock( &shm_addrs_mutex );
-
-    if (entry >= shm_addrs_size)
+    if (entry >= MAX_SHM_PAGES)
     {
-        int new_size = max(shm_addrs_size * 2, entry + 1);
-
-        if (!(shm_addrs = realloc( shm_addrs, new_size * sizeof(shm_addrs[0]) )))
-            ERR("Failed to grow shm_addrs array to size %d.\n", shm_addrs_size);
-        memset( shm_addrs + shm_addrs_size, 0, (new_size - shm_addrs_size) * sizeof(shm_addrs[0]) );
-        shm_addrs_size = new_size;
+        ERR("esync shm index out of bounds: %d\n", entry);
+        return NULL;
     }
 
     if (!shm_addrs[entry])
@@ -207,18 +198,15 @@ static void *get_shm( unsigned int idx )
         void *addr = mmap( NULL, pagesize, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, entry * pagesize );
         if (addr == (void *)-1)
             ERR("Failed to map page %d (offset %#lx).\n", entry, entry * pagesize);
-
-        TRACE("Mapping page %d at %p.\n", entry, addr);
-
-        if (InterlockedCompareExchangePointer( &shm_addrs[entry], addr, 0 ))
-            munmap( addr, pagesize ); /* someone beat us to it */
+        else
+        {
+            TRACE("Mapping page %d at %p.\n", entry, addr);
+            if (InterlockedCompareExchangePointer( &shm_addrs[entry], addr, 0 ))
+                munmap( addr, pagesize ); /* someone beat us to it */
+        }
     }
 
-    ret = (void *)((unsigned long)shm_addrs[entry] + offset);
-
-    pthread_mutex_unlock( &shm_addrs_mutex );
-
-    return ret;
+    return (void *)((unsigned long)shm_addrs[entry] + offset);
 }
 
 /* We'd like lookup to be fast. To that end, we use a static list indexed by handle.
@@ -539,6 +527,8 @@ static inline void small_pause(void)
 {
 #ifdef __i386__
     __asm__ __volatile__( "rep;nop" : : : "memory" );
+#elif defined(__aarch64__)
+    __asm__ __volatile__( "yield" : : : "memory" );
 #else
     __asm__ __volatile__( "" : : : "memory" );
 #endif
@@ -1150,9 +1140,15 @@ static NTSTATUS __esync_wait_objects( unsigned int count, const HANDLE *handles,
          * signaled. In either case anyone who tries to wait on A or B will be
          * waiting for an instant while we put things back. */
 
+        int spin_count = 0;
         while (1)
         {
 tryagain:
+            if (spin_count++ > 1000)
+            {
+                WARN("Starvation detected in wait-all, falling back to server.\n");
+                return STATUS_NOT_IMPLEMENTED;
+            }
             /* First step: try to poll on each object in sequence. */
             fds[0].events = POLLIN;
             pollcount = 1;
@@ -1396,7 +1392,4 @@ void esync_init(void)
     }
 
     pagesize = sysconf( _SC_PAGESIZE );
-
-    shm_addrs = calloc( 128, sizeof(shm_addrs[0]) );
-    shm_addrs_size = 128;
 }
