@@ -383,26 +383,21 @@ int read_process_memory( struct process *process, client_ptr_t ptr, data_size_t 
     addr = (unsigned long *)(unsigned long)(ptr - first_offset);
     len = (size + first_offset + sizeof(long) - 1) / sizeof(long);
 
+    {
+        char procmem[24];
+        int fd;
+
+        snprintf( procmem, sizeof(procmem), "/proc/%u/mem", process->unix_pid );
+        if ((fd = open( procmem, O_RDONLY )) != -1)
+        {
+            ssize_t ret = pread( fd, dest, size, ptr );
+            close( fd );
+            if (ret == size) return 1;
+        }
+    }
+
     if (suspend_for_ptrace( thread ))
     {
-        if (len > 3)  /* /proc/pid/mem should be faster for large sizes */
-        {
-            char procmem[24];
-            int fd;
-
-            snprintf( procmem, sizeof(procmem), "/proc/%u/mem", process->unix_pid );
-            if ((fd = open( procmem, O_RDONLY )) != -1)
-            {
-                ssize_t ret = pread( fd, dest, size, ptr );
-                close( fd );
-                if (ret == size)
-                {
-                    len = 0;
-                    goto done;
-                }
-            }
-        }
-
         if (len > 1)
         {
             if (read_thread_long( thread, addr++, &data ) == -1) goto done;
@@ -476,30 +471,25 @@ int write_process_memory( struct process *process, client_ptr_t ptr, data_size_t
     addr = (long *)(unsigned long)(ptr - first_offset);
     len = (size + first_offset + sizeof(long) - 1) / sizeof(long);
 
+    {
+        char procmem[24];
+        int fd;
+
+        snprintf( procmem, sizeof(procmem), "/proc/%u/mem", process->unix_pid );
+        if ((fd = open( procmem, O_WRONLY )) != -1)
+        {
+            ssize_t r = pwrite( fd, src, size, ptr );
+            close( fd );
+            if (r == size) return 1;
+        }
+    }
+
     if (suspend_for_ptrace( thread ))
     {
         if (!check_process_write_access( thread, addr, len ))
         {
             set_error( STATUS_ACCESS_DENIED );
             goto done;
-        }
-
-        if (len > 3)
-        {
-            char procmem[24];
-            int fd;
-
-            snprintf( procmem, sizeof(procmem), "/proc/%u/mem", process->unix_pid );
-            if ((fd = open( procmem, O_WRONLY )) != -1)
-            {
-                ssize_t r = pwrite( fd, src, size, ptr );
-                close( fd );
-                if (r == size)
-                {
-                    ret = 1;
-                    goto done;
-                }
-            }
         }
 
         /* first word is special */
