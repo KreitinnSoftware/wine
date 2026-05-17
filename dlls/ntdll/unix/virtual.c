@@ -6139,15 +6139,26 @@ NTSTATUS WINAPI NtReadVirtualMemory(HANDLE process, const void *addr,
     status = STATUS_ACCESS_VIOLATION;
     size = 0;
   } else if (process == GetCurrentProcess()) {
-    __TRY {
-      memmove(buffer, addr, size);
-      status = STATUS_SUCCESS;
+    int fd = open("/proc/self/mem", O_RDONLY | O_CLOEXEC);
+    if (fd != -1) {
+      if (pread(fd, buffer, size, (off_t)(ULONG_PTR)addr) == size)
+        status = STATUS_SUCCESS;
+      else {
+        status = STATUS_PARTIAL_COPY;
+        size = 0;
+      }
+      close(fd);
+    } else {
+      __TRY {
+        memmove(buffer, addr, size);
+        status = STATUS_SUCCESS;
+      }
+      __EXCEPT {
+        status = STATUS_PARTIAL_COPY;
+        size = 0;
+      }
+      __ENDTRY
     }
-    __EXCEPT {
-      status = STATUS_PARTIAL_COPY;
-      size = 0;
-    }
-    __ENDTRY
   } else {
     SERVER_START_REQ(read_process_memory) {
       req->handle = wine_server_obj_handle(process);
